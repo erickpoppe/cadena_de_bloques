@@ -1,0 +1,70 @@
+version: "3"
+services:
+   peer1:
+      hostname: peer1.agetic.gob.bo
+      # Aquí se puede añadir las IP de peers a lo que se desea conectar.
+      extra_hosts:
+         - "peer0.agetic.gob.bo:192.168.21.33"
+      image: hyperledger/fabric-peer:1.3.0
+      environment:
+         - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+         - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb1:5984
+         - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=peer
+         - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=peer
+         - CORE_PEER_ADDRESS=peer1.agetic.gob.bo:7051
+         - CORE_PEER_LOCALMSPID=AgeticMSP
+         - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+         - CORE_LOGGING_LEVEL=DEBUG
+         - CORE_PEER_ID=peer1.agetic.gob.bo
+         - CORE_PEER_PROFILE_ENABLED=true
+         - CORE_PEER_GOSSIP_USELEADERELECTION=true
+         - CORE_PEER_GOSSIP_ORGLEADER=false
+         - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.agetic.gob.bo:7051
+         - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.agetic.gob.bo:7051
+         - CORE_PEER_TLS_ENABLED=true
+         - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/crypto/tls/server.crt
+         - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/crypto/tls/server.key
+         - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/crypto/tls/ca.crt
+      volumes:
+         - /var/run/:/host/var/run/
+         - ./peer1.agetic.gob.bo:/etc/hyperledger/crypto
+         - peer1.agetic.gob.bo:/var/hyperledger/production
+      working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+      command: peer node start
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-viene-el-nombre-del-host
+      ports:
+         - "8051:7051"
+         - "8053:7053"
+      networks:
+         default:
+            aliases:
+               - peer1.agetic.gob.bo
+   couchdb1:
+      image: hyperledger/fabric-couchdb:0.4.10
+      environment:
+         - COUCHDB_USER=peer
+         - COUCHDB_PASSWORD=peer
+      ports:
+         - "6984:5984"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+        placement:
+           constraints:
+              - node.hostname == Aquí-viene-el-nombre-del-host    
+      networks:
+         default:
+            aliases:
+               - couchdb1.gob.bo:/opt/couchdb/data
+      volumes:
+         - couchdb1.gob.bo
+volumes:
+   peer1.agetic.gob.bo:
+   couchdb1.gob.bo:

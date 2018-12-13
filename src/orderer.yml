@@ -1,0 +1,332 @@
+version: "3"
+
+networks:
+   hyperledger-ov:
+      external:
+         name: hyperledger-ov
+
+services:
+   peer0agetic:
+      hostname: peer0.agetic.gob.bo
+      extra_hosts:
+         #  Las direcciones IP deben referenciar los hosts donde se encuentran los otros peers.
+         - "peer1.agetic.gob.bo:127.0.0.1"
+         - "peer2.agetic.gob.bo:127.0.0.1"
+      image: hyperledger/fabric-peer:1.3.0
+      environment:
+         - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=hyperledger-ov
+         - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
+         - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb0:5984
+         - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=peer
+         - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=este-valor-tiene-que-cambiar-en-produccion
+         - CORE_PEER_ADDRESS=peer0.agetic.gob.bo:7051
+         - CORE_PEER_LOCALMSPID=AgeticMSP
+         - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+         - CORE_LOGGING_LEVEL=DEBUG
+         - CORE_PEER_ID=peer0.agetic.gob.bo
+         - CORE_PEER_PROFILE_ENABLED=true
+         - CORE_PEER_GOSSIP_USELEADERELECTION=true
+         - CORE_PEER_GOSSIP_ORGLEADER=false
+         - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.agetic.gob.bo:7051
+         - CORE_PEER_GOSSIP_BOOTSTRAP=peer1.agetic.gob.bo:8051
+         - CORE_PEER_TLS_ENABLED=true
+         - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/crypto-config/peerOrganizations/agetic.gob.bo/peers/peer0.agetic.gob.bo/tls/server.crt
+         - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/crypto-config/peerOrganizations/agetic.gob.bo/peers/peer0.agetic.gob.bo/tls/server.key
+         - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/crypto-config/peerOrganizations/agetic.gob.bo/peers/peer0.agetic.gob.bo/tls/ca.crt
+      volumes:
+         - /var/run/docker.sock:/host/var/run/docker.sock
+         - ./crypto-config:/etc/hyperledger/crypto-config/
+         - peer0.agetic.gob.bo:/var/hyperledger/production
+      working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+      command: peer node start --peer-chaincodedev=true
+      # El nombre de node.hostname debe reflejar el nombre de host de la máquina host donde se arrancará el contenedor
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      ports:
+         - "7051:7051"
+         - "7053:7053"
+      networks:
+         hyperledger-ov:
+            aliases:
+               - peer0.agetic.gob.bo
+   couchdb0:
+      hostname: couchdb0.gob.bo
+      image: hyperledger/fabric-couchdb:0.4.10
+      environment:
+         - COUCHDB_USER=peer
+         - COUCHDB_PASSWORD=este-valor-tiene-que-cambiar-en-produccion
+      ports:
+         - "5984:5984"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - couchdb0.gob.bo                
+      volumes:
+         - couchdb0.gob.bo:/opt/couchdb/data    
+   orderer0:
+      hostname: orderer0.gob.bo
+      image: hyperledger/fabric-orderer:1.3.0
+      environment:
+         - ORDERER_GENERAL_LOGLEVEL=debug
+         - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+         - ORDERER_GENERAL_GENESISMETHOD=file
+         - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/genesis.block
+         - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+         - ORDERER_GENERAL_LOCALMSPDIR=/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer0.gob.bo/msp
+         # enabled TLS
+         - ORDERER_GENERAL_TLS_ENABLED=true
+         - ORDERER_GENERAL_TLS_PRIVATEKEY=/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer0.gob.bo/tls/server.key
+         - ORDERER_GENERAL_TLS_CERTIFICATE=/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer0.gob.bo/tls/server.crt
+         - ORDERER_GENERAL_TLS_ROOTCAS=[/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer0.gob.bo/tls/ca.crt]
+         # kafka
+         - ORDERER_KAFKA_RETRY_SHORTINTERVAL=1s
+         - ORDERER_KAFKA_RETRY_SHORTTOTAL=30s
+         - ORDERER_KAFKA_VERBOSE=true
+         # Red
+      volumes:
+         - ./channel-artifacts:/var/hyperledger/orderer
+         - ./crypto-config:/etc/hyperledger/crypto-config
+         - orderer0.gob.bo:/var/hyperledger/production
+      working_dir: /opt/gopath/src/github.com/hyperledger/fabric-orderer
+      command: orderer
+      ports:
+         - "7050:7050"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - orderer0.gob.bo
+   orderer1:
+      hostname: orderer1.gob.bo
+      image: hyperledger/fabric-orderer:1.3.0
+      environment:
+         - ORDERER_GENERAL_LOGLEVEL=debug
+         - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+         - ORDERER_GENERAL_GENESISMETHOD=file
+         - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/genesis.block
+         - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+         - ORDERER_GENERAL_LOCALMSPDIR=/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer1.gob.bo/msp
+         # enabled TLS
+         - ORDERER_GENERAL_TLS_ENABLED=true
+         - ORDERER_GENERAL_TLS_PRIVATEKEY=/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer1.gob.bo/tls/server.key
+         - ORDERER_GENERAL_TLS_CERTIFICATE=/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer1.gob.bo/tls/server.crt
+         - ORDERER_GENERAL_TLS_ROOTCAS=[/etc/hyperledger/crypto-config/ordererOrganizations/gob.bo/orderers/orderer1.gob.bo/tls/ca.crt]
+         # kafka
+         - ORDERER_KAFKA_RETRY_SHORTINTERVAL=1s
+         - ORDERER_KAFKA_RETRY_SHORTTOTAL=30s
+         - ORDERER_KAFKA_VERBOSE=true
+         # Red
+      volumes:
+         - ./channel-artifacts:/var/hyperledger/orderer
+         - ./crypto-config:/etc/hyperledger/crypto-config
+         - orderer1.gob.bo:/var/hyperledger/production
+      working_dir: /opt/gopath/src/github.com/hyperledger/fabric-orderer
+      command: orderer
+      ports:
+         - "8050:7050"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - orderer1.gob.bo
+   kafka0:
+      hostname: kafka0.gob.bo
+      image: hyperledger/fabric-kafka:0.4.10
+      environment:
+         - KAFKA_MESSAGE_MAX_BYTES=103809024
+         - KAFKA_REPLICA_FETCH_MAX_BYTES=103809024
+         - KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE=false
+         - KAFKA_MIN_INSYNC_REPLICAS=2
+         - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+         - KAFKA_ZOOKEEPER_CONNECT=zookeeper0:2181,zookeeper1:2181,zookeeper2:2181
+         - KAFKA_LOG_RETENTION_MS=-1
+         - KAFKA_BROKER_ID=0
+      ports:
+         - "9092:9092"
+         - "9093:9093"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - kafka0.gob.bo
+   kafka1:
+      hostname: kafka1.gob.bo
+      image: hyperledger/fabric-kafka:0.4.10
+      environment:
+         - KAFKA_MESSAGE_MAX_BYTES=103809024
+         - KAFKA_REPLICA_FETCH_MAX_BYTES=103809024
+         - KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE=false
+         - KAFKA_MIN_INSYNC_REPLICAS=2
+         - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+         - KAFKA_ZOOKEEPER_CONNECT=zookeeper0:2181,zookeeper1:2181,zookeeper2:2181
+         - KAFKA_LOG_RETENTION_MS=-1
+         - KAFKA_BROKER_ID=1
+      ports:
+         - "10092:9092"
+         - "10093:9093"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host    
+      networks:
+         hyperledger-ov:
+            aliases:
+               - kafka1.gob.bo
+   kafka2:
+      hostname: kafka2.gob.bo
+      image: hyperledger/fabric-kafka:0.4.10
+      environment:
+         - KAFKA_MESSAGE_MAX_BYTES=103809024
+         - KAFKA_REPLICA_FETCH_MAX_BYTES=103809024
+         - KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE=false
+         - KAFKA_MIN_INSYNC_REPLICAS=2
+         - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+         - KAFKA_ZOOKEEPER_CONNECT=zookeeper0:2181,zookeeper1:2181,zookeeper2:2181
+         - KAFKA_LOG_RETENTION_MS=-1
+         - KAFKA_BROKER_ID=2
+      ports:
+         - "11092:9092"
+         - "11093:9093"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host    
+      networks:
+         hyperledger-ov:
+            aliases:
+               - kafka2.gob.bo
+   kafka3:
+      hostname: kafka3.gob.bo
+      image: hyperledger/fabric-kafka:0.4.10
+      environment:
+         - KAFKA_MESSAGE_MAX_BYTES=103809024
+         - KAFKA_REPLICA_FETCH_MAX_BYTES=103809024
+         - KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE=false
+         - KAFKA_MIN_INSYNC_REPLICAS=2
+         - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+         - KAFKA_ZOOKEEPER_CONNECT=zookeeper0:2181,zookeeper1:2181,zookeeper2:2181
+         - KAFKA_LOG_RETENTION_MS=-1
+         - KAFKA_BROKER_ID=3
+      ports:
+         - "12092:9092"
+         - "12093:9093"
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host     
+      networks:
+         hyperledger-ov:
+            aliases:
+               - kafka3.gob.bo
+   zookeeper0:
+      hostname: zookeeper0
+      image: hyperledger/fabric-zookeeper:0.4.10
+      environment:
+         - ZOO_SERVERS=server.1=0.0.0.0:2888:3888 server.2=zookeeper1:2888:3888 server.3=zookeeper2:2888:3888
+         - ZOO_MY_ID=1
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - zookeeper0.gob.bo                
+      ports:
+         - "2181"
+         - "2888"
+         - "3888"
+   zookeeper1:
+      hostname: zookeeper1
+      image: hyperledger/fabric-zookeeper:0.4.10
+      environment:
+         - ZOO_SERVERS=server.1=zookeeper0:2888:3888 server.2=0.0.0.0:2888:3888 server.3=zookeeper2:2888:3888
+         - ZOO_MY_ID=2
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - zookeeper1.gob.bo                                 
+      ports:
+         - "2181"
+         - "2888"
+         - "3888"
+
+   zookeeper2:
+      hostname: zookeeper2
+      image: hyperledger/fabric-zookeeper:0.4.10
+      environment:
+         - ZOO_SERVERS=server.1=zookeeper0:2888:3888 server.2=zookeeper1:2888:3888 server.3=0.0.0.0:2888:3888
+         - ZOO_MY_ID=3
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+               - node.hostname == Aquí-el-nombre-del-host
+      networks:
+         hyperledger-ov:
+            aliases:
+               - zookeeper2.gob.bo                
+      ports:
+         - "2181"
+         - "2888"
+         - "3888"
+   
+volumes:
+   peer0.agetic.gob.bo:
+   couchdb0.gob.bo:
+   orderer0.gob.bo:
+   orderer1.gob.bo:
+
+
+

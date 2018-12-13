@@ -1,0 +1,38 @@
+version: "3"
+
+networks:
+   hyperledger-ov:
+      external:
+         name: hyperledger-ov
+
+services:gobb
+   cagobbo:
+      hostname: ca.gob.bo
+      image: hyperledger/fabric-ca:1.3.0
+      # Las credenciales detalladas a continuación (admin_user:password), deben ser cambiadas en producción
+      command: sh -c 'fabric-ca-server start -b admin:adminpw -d'
+      environment:
+         - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=hyperledger-ov
+         - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+         - FABRIC_CA_SERVER_CA_NAME=ca.gob.bo
+         - FABRIC_CA_SERVER_CA_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.agetic.gob.bo-cert.pem 
+         - FABRIC_CA_SERVER_CA_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e6424bcc970592e253ca8b2a69a5105c4a89fcb3f543f263fe89f16ff75e6810_sk
+         - FABRIC_CA_SERVER_TLS_ENABLED=true
+         - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.agetic.gob.bo-cert.pem
+         - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/e6424bcc970592e253ca8b2a69a5105c4a89fcb3f543f263fe89f16ff75e6810_sk   
+      deploy:
+         replicas: 1
+         restart_policy:
+            condition: on-failure
+         placement:
+            constraints:
+            - node.hostname == Aquí viene el nombre del host   
+      ports:
+         - "7054:7054"
+      volumes:
+         - ./crypto-config/peerOrganizations/agetic.gob.bo/ca/:/etc/hyperledger/fabric-ca-server-config
+      networks:
+         hyperledger-ov:
+            aliases:
+               - ca.gob.bo
+

@@ -1,0 +1,3 @@
+## Explicación de los certificados y llaves generados en Hyperledger Fabric
+![Certificados y llaves generados en Hyperledger Fabric](img/certificados.png)
+Al interior de la carpeta crypto-config, se encuentran dos posibilidades: ordererOrganizations y peerOrganizations. La primera opción se refiere a los certificados y llaves pertenecientes al sistema de ordenamiento, mientras que la segunda opción se refiere a las organizaciones que tienen pares (peers) participantes en la cadena de bloques.
